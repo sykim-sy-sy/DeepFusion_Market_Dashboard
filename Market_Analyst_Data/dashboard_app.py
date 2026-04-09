@@ -81,16 +81,6 @@ else:
     if len(unique_dates) == 0:
         st.warning("선택한 조건에 해당하는 결과가 없습니다.")
     else:
-        # === [신규 추가] 시각화 요약(KPI) ===
-        st.markdown("### 📈 전체 시장 동향 한눈에 보기")
-        m1, m2 = st.columns(2)
-        with m1:
-            st.metric(label="총 누적 분석 리포트", value=f"{len(df)}건")
-        with m2:
-            st.metric(label="보유 중인 수집 타겟 풀", value=f"{df['competitor'].nunique()}개 기업 단위")
-            
-        st.divider()
-
         # ---------------------------------------------------------
         # 날짜별 슬라이드 이동(화살표 네비게이션) 로직
         # ---------------------------------------------------------
