@@ -81,38 +81,36 @@ else:
     if selected_date != "전체 날짜":
         filtered_df = filtered_df[filtered_df['report_date'] == selected_date]
         
-    # === [신규 추가] 시각화 요약(KPI) 및 차트 ===
-    st.markdown("### 📈 전체 시장 동향 한눈에 보기 (Overview)")
-    m1, m2, m3 = st.columns(3)
+    # === [신규 추가] 시각화 요약(KPI) ===
+    st.markdown("### 📈 전체 시장 동향 한눈에 보기")
+    m1, m2 = st.columns(2)
     with m1:
         st.metric(label="총 누적 분석 리포트", value=f"{len(df)}건")
     with m2:
-        st.metric(label="보유 중인 경쟁사 풀", value=f"{df['competitor'].nunique()}곳")
-    with m3:
-        st.metric(label="최근 가장 핫한 타겟", value=df['competitor'].value_counts().idxmax())
+        st.metric(label="보유 중인 수집 타겟 풀", value=f"{df['competitor'].nunique()}개 기업 단위")
         
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    chart_col1, chart_col2 = st.columns(2)
-    with chart_col1:
-        st.write("**📊 타겟별 언론 언급량 비교 (Bar)**")
-        st.bar_chart(df['competitor'].value_counts())
-    with chart_col2:
-        st.write("**📈 일자별 자율주행 시장 트렌드 흐름 (Line)**")
-        st.line_chart(df.groupby('report_date').size())
-
     st.divider()
     # =========================================
 
-    st.subheader(f"📑 검색된 상세 리포트: 총 {len(filtered_df)}건")
-    st.divider()
+    st.subheader(f"📑 타겟 분석 타임라인: 검색된 리포트 총 {len(filtered_df)}건")
+    st.write("발생 일자별로 최신순 정렬된 분석 리포트입니다.")
 
     # ---------------------------------------------------------
-    # 메인 리포트 렌더링
+    # 메인 리포트 렌더링 (일자별 타임라인 그룹핑)
     # ---------------------------------------------------------
+    current_date = None
+    
     for index, row in filtered_df.iterrows():
-        # 기본적으로 맨 위에 있는 최신 리포트 1개만 펼쳐둠
-        with st.expander(f"[{row['report_date']}] {row['competitor']} 인사이트 리포트", expanded=(index==0)):
+        date = row['report_date']
+        comp = row['competitor']
+        
+        # 날짜가 바뀌었을 때 날짜 구분선을 크고 명확하게 표시
+        if date != current_date:
+            st.markdown(f"<br><h2 style='color: #4A90E2;'>📅 {date}</h2>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin-top: 0px; margin-bottom: 20px; border-top: 2px solid #4A90E2;'>", unsafe_allow_html=True)
+            current_date = date
+            
+        with st.expander(f"🏢 {comp} 인사이트 리포트", expanded=(index==0)):
             
             st.markdown("### 🔎 팩트 체크 (사실 관계)")
             st.markdown(f'<div class="fact-box">{row["facts"]}</div>', unsafe_allow_html=True)
