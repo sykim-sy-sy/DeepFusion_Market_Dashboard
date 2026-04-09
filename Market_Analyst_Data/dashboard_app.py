@@ -51,7 +51,7 @@ st.markdown("""
         font-weight: 700;
         padding: 16px;
         width: 15%;
-        text-align: center;
+        text-align: left;
         border-bottom: 1px solid #E2E8F0;
         border-right: 1px solid #E2E8F0;
     }
@@ -195,7 +195,7 @@ else:
                         <td>{impl_html}</td>
                     </tr>
                     <tr>
-                        <th><span style='display:inline-block; width:4px; height:14px; background-color:#718096; vertical-align:middle; margin-right:8px;'></span>원문 출처</th>
+                        <th><span style='display:inline-block; width:4px; height:14px; background-color:#805AD5; vertical-align:middle; margin-right:8px;'></span>원문 출처</th>
                         <td>{urls_html}</td>
                     </tr>
                 </table>
