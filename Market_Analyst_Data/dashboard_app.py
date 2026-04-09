@@ -81,7 +81,30 @@ else:
     if selected_date != "전체 날짜":
         filtered_df = filtered_df[filtered_df['report_date'] == selected_date]
         
-    st.subheader(f"📑 검색된 리포트: 총 {len(filtered_df)}건")
+    # === [신규 추가] 시각화 요약(KPI) 및 차트 ===
+    st.markdown("### 📈 전체 시장 동향 한눈에 보기 (Overview)")
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.metric(label="총 누적 분석 리포트", value=f"{len(df)}건")
+    with m2:
+        st.metric(label="보유 중인 경쟁사 풀", value=f"{df['competitor'].nunique()}곳")
+    with m3:
+        st.metric(label="최근 가장 핫한 타겟", value=df['competitor'].value_counts().idxmax())
+        
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    chart_col1, chart_col2 = st.columns(2)
+    with chart_col1:
+        st.write("**📊 타겟별 언론 언급량 비교 (Bar)**")
+        st.bar_chart(df['competitor'].value_counts())
+    with chart_col2:
+        st.write("**📈 일자별 자율주행 시장 트렌드 흐름 (Line)**")
+        st.line_chart(df.groupby('report_date').size())
+
+    st.divider()
+    # =========================================
+
+    st.subheader(f"📑 검색된 상세 리포트: 총 {len(filtered_df)}건")
     st.divider()
 
     # ---------------------------------------------------------
