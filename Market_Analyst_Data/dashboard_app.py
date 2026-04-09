@@ -109,6 +109,8 @@ else:
         
         with col2:
             st.markdown(f"<h2 style='text-align: center; color: #4A90E2;'>📅 {current_date_val} 모닝 리포트</h2>", unsafe_allow_html=True)
+            if selected_company != "전체 조회":
+                st.markdown(f"<div style='text-align: center; font-size: 1.1rem; color: #E63946; font-weight: bold; background-color: #FDE8E9; padding: 8px; border-radius: 8px; margin-top: -10px;'>🎯 현재 [{selected_company}] 기업 타임라인만 모아보는 중입니다.</div>", unsafe_allow_html=True)
             
         st.divider()
 
