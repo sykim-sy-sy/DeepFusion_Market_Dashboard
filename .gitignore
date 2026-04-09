@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE/System
+.vscode/
+.idea/
+.gemini/
+*.log
+.DS_Store
+
+# (중요) DB 파일은 대시보드에 필요하므로 무시하지 않음
+# *.db (주석 처리)
