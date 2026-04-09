@@ -111,8 +111,8 @@ else:
             st.markdown(f"<h2 style='text-align: center; color: #4A90E2;'>📅 {current_date_val} 모닝 리포트</h2>", unsafe_allow_html=True)
             if selected_company != "전체 조회":
                 st.markdown(
-                    f"<div style='text-align: center; font-size: 1.05rem; color: #2E7D32; font-weight: 600; background-color: #E8F5E9; padding: 8px; border-radius: 8px; margin-top: -10px;'>"
-                    f"🔍 [{selected_company}] 관련 시장 동향만 필터링하여 보여드립니다."
+                    f"<div style='text-align: center; font-size: 1.1rem; color: #2E7D32; font-weight: bold; background-color: #E8F5E9; padding: 6px; border-radius: 8px; margin-top: -10px; width: fit-content; margin-left: auto; margin-right: auto;'>"
+                    f"🔍 {selected_company}"
                     f"</div>", 
                     unsafe_allow_html=True
                 )
