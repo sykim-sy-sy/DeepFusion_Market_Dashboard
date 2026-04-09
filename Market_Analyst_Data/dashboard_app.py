@@ -34,6 +34,44 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 20px;
     }
+    .report-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        margin-bottom: 15px;
+        background-color: white;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .report-table th {
+        background-color: #F8FAFC;
+        color: #1A202C;
+        font-weight: 700;
+        padding: 16px;
+        width: 15%;
+        text-align: center;
+        border-bottom: 1px solid #E2E8F0;
+        border-right: 1px solid #E2E8F0;
+    }
+    .report-table td {
+        padding: 16px;
+        color: #2D3748;
+        line-height: 1.6;
+        border-bottom: 1px solid #E2E8F0;
+    }
+    .report-table tr:last-child th, .report-table tr:last-child td {
+        border-bottom: none;
+    }
+    .report-table a {
+        color: #3182CE;
+        text-decoration: none;
+        font-weight: bold;
+    }
+    .report-table a:hover {
+        text-decoration: underline;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -130,18 +168,36 @@ else:
             comp = row['competitor']
             # 한 화면에 하루치만 보이므로 모두 쫙 펼쳐줌!
             with st.expander(f"🏢 {comp} 인사이트 리포트", expanded=True):
-                st.markdown("### 🔎 팩트 체크 (사실 관계)")
-                st.markdown(f'<div class="fact-box">{row["facts"]}</div>', unsafe_allow_html=True)
+                # 텍스트 내 줄바꿈을 HTML <br>로 변환, 마크다운 총알(- ) 스타일링 적용
+                facts_html = str(row["facts"]).replace('\n', '<br>').replace('- ', '• ')
+                impl_html = str(row["implications"]).replace('\n', '<br>').replace('- ', '• ')
                 
-                st.markdown("### 💡 우리 회사에 주는 시사점 (위협 및 기회)")
-                st.markdown(f'<div class="insight-box">{row["implications"]}</div>', unsafe_allow_html=True)
-                
-                st.markdown("### 🔗 원문 출처 (검증된 링크)")
+                urls_html = ""
                 if row['urls'] and str(row['urls']).strip():
-                    urls = str(row['urls']).split('\n')
-                    for u in urls:
+                    url_list = str(row['urls']).split('\n')
+                    links = []
+                    for i, u in enumerate(url_list):
                         u = u.strip()
                         if u:
-                            st.markdown(f"👉 [{u}]({u})")
+                            links.append(f"<a href='{u}' target='_blank'>[링크 {i+1}]</a>")
+                    urls_html = "&nbsp;&nbsp;|&nbsp;&nbsp;".join(links) if links else "없음"
                 else:
-                    st.caption("제공된 외부 기사 링크가 없습니다.")
+                    urls_html = "<span style='color: #A0AEC0;'>제공된 링크가 없습니다.</span>"
+                    
+                table_html = f"""
+                <table class="report-table">
+                    <tr>
+                        <th>🔎 팩트 체크</th>
+                        <td>{facts_html}</td>
+                    </tr>
+                    <tr>
+                        <th>💡 시사점</th>
+                        <td>{impl_html}</td>
+                    </tr>
+                    <tr>
+                        <th>🔗 원문 출처</th>
+                        <td>{urls_html}</td>
+                    </tr>
+                </table>
+                """
+                st.markdown(table_html, unsafe_allow_html=True)
