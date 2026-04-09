@@ -13,8 +13,16 @@ echo ==================================================
 if %errorlevel% neq 0 (
     echo.
     echo [오류] 에이전트 실행 중 문제가 발생했습니다. (Error Level: %errorlevel%)
-    timeout /t 30
 )
+
+echo.
+echo ==================================================
+echo [Lina] 인터넷 대시보드로 최신 분석 데이터를 업로드(동기화)합니다.
+echo ==================================================
+"C:\Program Files\Git\cmd\git.exe" add Market_Analyst_Data/market_data.db
+"C:\Program Files\Git\cmd\git.exe" commit -m "Auto-update market data DB: %date%"
+"C:\Program Files\Git\cmd\git.exe" push origin main
+
 
 echo.
 echo ==================================================
