@@ -69,61 +69,82 @@ else:
     companies = ["전체 조회"] + list(df['competitor'].unique())
     selected_company = st.sidebar.selectbox("🏢 특정 경쟁사 집중 보기", companies)
     
-    dates = ["전체 날짜"] + list(df['report_date'].unique())
-    selected_date = st.sidebar.selectbox("📆 특정 날짜 리포트 보기", dates)
-    
     # ---------------------------------------------------------
-    # 데이터 필터링 적용
+    # 데이터 필터링 적용 (특정 경쟁사)
     # ---------------------------------------------------------
     filtered_df = df.copy()
     if selected_company != "전체 조회":
         filtered_df = filtered_df[filtered_df['competitor'] == selected_company]
-    if selected_date != "전체 날짜":
-        filtered_df = filtered_df[filtered_df['report_date'] == selected_date]
         
-    # === [신규 추가] 시각화 요약(KPI) ===
-    st.markdown("### 📈 전체 시장 동향 한눈에 보기")
-    m1, m2 = st.columns(2)
-    with m1:
-        st.metric(label="총 누적 분석 리포트", value=f"{len(df)}건")
-    with m2:
-        st.metric(label="보유 중인 수집 타겟 풀", value=f"{df['competitor'].nunique()}개 기업 단위")
-        
-    st.divider()
-    # =========================================
-
-    st.subheader(f"📑 타겟 분석 타임라인: 검색된 리포트 총 {len(filtered_df)}건")
-    st.write("발생 일자별로 최신순 정렬된 분석 리포트입니다.")
-
-    # ---------------------------------------------------------
-    # 메인 리포트 렌더링 (일자별 타임라인 그룹핑)
-    # ---------------------------------------------------------
-    current_date = None
+    unique_dates = sorted(filtered_df['report_date'].unique(), reverse=True)
     
-    for index, row in filtered_df.iterrows():
-        date = row['report_date']
-        comp = row['competitor']
+    if len(unique_dates) == 0:
+        st.warning("선택한 조건에 해당하는 결과가 없습니다.")
+    else:
+        # === [신규 추가] 시각화 요약(KPI) ===
+        st.markdown("### 📈 전체 시장 동향 한눈에 보기")
+        m1, m2 = st.columns(2)
+        with m1:
+            st.metric(label="총 누적 분석 리포트", value=f"{len(df)}건")
+        with m2:
+            st.metric(label="보유 중인 수집 타겟 풀", value=f"{df['competitor'].nunique()}개 기업 단위")
+            
+        st.divider()
+
+        # ---------------------------------------------------------
+        # 날짜별 슬라이드 이동(화살표 네비게이션) 로직
+        # ---------------------------------------------------------
+        if 'date_index' not in st.session_state:
+            st.session_state.date_index = 0
+            
+        # 선택된 타겟에 맞춰 전체 날짜 목록이 바뀌면 인덱스 보호(오류방지)
+        if st.session_state.date_index >= len(unique_dates):
+            st.session_state.date_index = 0
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 4, 1])
         
-        # 날짜가 바뀌었을 때 날짜 구분선을 크고 명확하게 표시
-        if date != current_date:
-            st.markdown(f"<br><h2 style='color: #4A90E2;'>📅 {date}</h2>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin-top: 0px; margin-bottom: 20px; border-top: 2px solid #4A90E2;'>", unsafe_allow_html=True)
-            current_date = date
+        with col1:
+            if st.button("⬅️ 이전 날짜 (과거)"):
+                if st.session_state.date_index < len(unique_dates) - 1:
+                    st.session_state.date_index += 1
+
+        with col3:
+            if st.button("다음 날짜 (최신) ➡️"):
+                if st.session_state.date_index > 0:
+                    st.session_state.date_index -= 1
+                    
+        # 화살표 버튼으로 결정된 현재 출력해야 할 날짜
+        current_date_val = unique_dates[st.session_state.date_index]
+        
+        with col2:
+            st.markdown(f"<h2 style='text-align: center; color: #4A90E2;'>📅 {current_date_val} 모닝 리포트</h2>", unsafe_allow_html=True)
             
-        with st.expander(f"🏢 {comp} 인사이트 리포트", expanded=(index==0)):
-            
-            st.markdown("### 🔎 팩트 체크 (사실 관계)")
-            st.markdown(f'<div class="fact-box">{row["facts"]}</div>', unsafe_allow_html=True)
-            
-            st.markdown("### 💡 우리 회사에 주는 시사점 (위협 및 기회)")
-            st.markdown(f'<div class="insight-box">{row["implications"]}</div>', unsafe_allow_html=True)
-            
-            st.markdown("### 🔗 원문 출처 (검증된 링크)")
-            if row['urls'] and str(row['urls']).strip():
-                urls = str(row['urls']).split('\n')
-                for u in urls:
-                    u = u.strip()
-                    if u:
-                        st.markdown(f"👉 [{u}]({u})")
-            else:
-                st.caption("제공된 외부 기사 링크가 없습니다.")
+        st.divider()
+
+        # ---------------------------------------------------------
+        # 메인 리포트 렌더링 (현재 선택된 날짜 하루치만 보여줌)
+        # ---------------------------------------------------------
+        daily_df = filtered_df[filtered_df['report_date'] == current_date_val]
+        st.subheader(f"📑 해당 일자의 타겟 리포트 총 {len(daily_df)}건")
+        st.write("안구 피로 방지를 위해 화살표를 눌러 하루치 소식만 쾌적하게 봅니다.")
+        
+        for index, row in daily_df.iterrows():
+            comp = row['competitor']
+            # 한 화면에 하루치만 보이므로 모두 쫙 펼쳐줌!
+            with st.expander(f"🏢 {comp} 인사이트 리포트", expanded=True):
+                st.markdown("### 🔎 팩트 체크 (사실 관계)")
+                st.markdown(f'<div class="fact-box">{row["facts"]}</div>', unsafe_allow_html=True)
+                
+                st.markdown("### 💡 우리 회사에 주는 시사점 (위협 및 기회)")
+                st.markdown(f'<div class="insight-box">{row["implications"]}</div>', unsafe_allow_html=True)
+                
+                st.markdown("### 🔗 원문 출처 (검증된 링크)")
+                if row['urls'] and str(row['urls']).strip():
+                    urls = str(row['urls']).split('\n')
+                    for u in urls:
+                        u = u.strip()
+                        if u:
+                            st.markdown(f"👉 [{u}]({u})")
+                else:
+                    st.caption("제공된 외부 기사 링크가 없습니다.")
