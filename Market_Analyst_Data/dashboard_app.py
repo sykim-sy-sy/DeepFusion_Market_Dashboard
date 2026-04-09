@@ -75,7 +75,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header"> DeepFusion AI 모닝 인사이트 데스크</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header"><span style="color:#004b87;">■</span> DeepFusion AI 모닝 인사이트 데스크</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">AI 에이전트 Lina가 매일 수집 및 심층 분석하는 자율주행 센서/4D 레이더 경쟁사 동향 대시보드입니다.</p>', unsafe_allow_html=True)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "market_data.db")
@@ -133,12 +133,12 @@ else:
         col1, col2, col3 = st.columns([1, 4, 1])
         
         with col1:
-            if st.button(" 이전 날짜 (과거)"):
+            if st.button("◀ 이전 날짜"):
                 if st.session_state.date_index < len(unique_dates) - 1:
                     st.session_state.date_index += 1
 
         with col3:
-            if st.button("다음 날짜 (최신) "):
+            if st.button("다음 날짜 ▶"):
                 if st.session_state.date_index > 0:
                     st.session_state.date_index -= 1
                     
@@ -146,11 +146,11 @@ else:
         current_date_val = unique_dates[st.session_state.date_index]
         
         with col2:
-            st.markdown(f"<h2 style='text-align: center; color: #4A90E2;'> {current_date_val} 모닝 리포트</h2>", unsafe_allow_html=True)
+            st.markdown(f"<h2 style='text-align: center; color: #4A90E2;'>■ {current_date_val} 모닝 리포트</h2>", unsafe_allow_html=True)
             if selected_company != "전체 조회":
                 st.markdown(
                     f"<div style='text-align: center; font-size: 1.1rem; color: #2E7D32; font-weight: bold; background-color: #E8F5E9; padding: 6px; border-radius: 8px; margin-top: -10px; width: fit-content; margin-left: auto; margin-right: auto;'>"
-                    f" {selected_company}"
+                    f"<span style='color: #1B5E20;'>▪</span> {selected_company}"
                     f"</div>", 
                     unsafe_allow_html=True
                 )
@@ -161,13 +161,13 @@ else:
         # 메인 리포트 렌더링 (현재 선택된 날짜 하루치만 보여줌)
         # ---------------------------------------------------------
         daily_df = filtered_df[filtered_df['report_date'] == current_date_val]
-        st.subheader(f" 해당 일자의 타겟 리포트 총 {len(daily_df)}건")
+        st.subheader(f"■ 해당 일자의 타겟 리포트 총 {len(daily_df)}건")
         st.write("안구 피로 방지를 위해 화살표를 눌러 하루치 소식만 쾌적하게 봅니다.")
         
         for index, row in daily_df.iterrows():
             comp = row['competitor']
             # 한 화면에 하루치만 보이므로 모두 쫙 펼쳐줌!
-            with st.expander(f" {comp} 인사이트 리포트", expanded=True):
+            with st.expander(f"▪ {comp} 인사이트 리포트", expanded=True):
                 # 텍스트 내 줄바꿈을 HTML <br>로 변환, 마크다운 총알(- ) 스타일링 적용
                 facts_html = str(row["facts"]).replace('\n', '<br>').replace('- ', '• ')
                 impl_html = str(row["implications"]).replace('\n', '<br>').replace('- ', '• ')
@@ -187,15 +187,15 @@ else:
                 table_html = f"""
                 <table class="report-table">
                     <tr>
-                        <th> 팩트 체크</th>
+                        <th><span style='display:inline-block; width:4px; height:14px; background-color:#3182CE; vertical-align:middle; margin-right:8px;'></span>팩트 체크</th>
                         <td>{facts_html}</td>
                     </tr>
                     <tr>
-                        <th> 시사점</th>
+                        <th><span style='display:inline-block; width:4px; height:14px; background-color:#D69E2E; vertical-align:middle; margin-right:8px;'></span>시사점</th>
                         <td>{impl_html}</td>
                     </tr>
                     <tr>
-                        <th> 원문 출처</th>
+                        <th><span style='display:inline-block; width:4px; height:14px; background-color:#718096; vertical-align:middle; margin-right:8px;'></span>원문 출처</th>
                         <td>{urls_html}</td>
                     </tr>
                 </table>
