@@ -60,12 +60,20 @@ RECIPIENT_EMAILS = [
 ]
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "").strip()
 
+# 시장/기술 동향 분석을 위한 광범위 키워드
+INDUSTRY_KEYWORDS = [
+    "4D Imaging Radar Market News", 
+    "Autonomous Driving Sensor Technology Trends",
+    "Automotive Radar Industry Analysis",
+    "ADAS perception software innovation"
+]
+
 # ---------------------------------------------------------
 # Prompt & Parsing Configuration
 # ---------------------------------------------------------
 NEW_LINA_SYSTEM_PROMPT = """
 당신은 'Lina(리나)'이며, 자율주행 및 4D 이미징 레이더 전문 센서 기업 '딥퓨전에이아이(DeepFusion AI)'의 수석 시장 분석가입니다.
-제공된 [단일 경쟁사]의 팩트 데이터를 바탕으로 다음의 JSON 형식으로만 응답하세요. 데이터가 비어있거나 무의미하다면 "새로운 동향 없음"이라고 명확히 표기하세요. 절대로 없는 사실이나 가짜 링크를 만들어내지 마세요.
+제공된 [분석 대상(경쟁사 또는 시장)]의 팩트 데이터를 바탕으로 다음의 JSON 형식으로만 응답하세요. 데이터가 비어있거나 무의미하다면 "새로운 동향 없음"이라고 명확히 표기하세요. 절대로 없는 사실이나 가짜 링크를 만들어내지 마세요.
 
 응답 형식 (JSON만 출력):
 {
@@ -221,6 +229,46 @@ def run_agent(forced_mode=None):
 
     final_report_sections = []
     
+    # ---------------------------------------------------------
+    # PART 1. Global Market & Tech Trend Analysis
+    # ---------------------------------------------------------
+    market_trend_sections = []
+    log(" -> Performing Global Market & Tech Trend Analysis...")
+    
+    combined_market_news = ""
+    combined_market_urls = []
+    
+    for m_kw in INDUSTRY_KEYWORDS:
+        news_text, news_urls = fetch_structured_news(m_kw, time_limit=time_limit)
+        if news_text and "새 뉴스가 없습" not in news_text:
+            combined_market_news += f"--- Keyword: {m_kw} ---\n{news_text}\n\n"
+            combined_market_urls.extend(news_urls)
+            
+    if combined_market_news:
+        market_res = analyze_single_competitor("시장 및 기술 동향", combined_market_news)
+        if "새로운 동향 없음" not in market_res['facts']:
+            category_name = "■ 시장 및 기술 동향"
+            # DB Save
+            try:
+                db_manager.insert_analysis(category_name, market_res['facts'], market_res['implications'], "\n".join(list(set(combined_market_urls))))
+            except Exception as e:
+                log(f"    Market Trend DB Insert Error: {e}")
+            
+            # Form section for email
+            links_md = ""
+            for u in list(set(combined_market_urls))[:5]:
+                links_md += f"- {u}\n"
+            
+            section = f"### 🌐 {category_name}\n\n**[📌 주요 동향]**\n{market_res['facts']}\n\n**[💡 DeepFusion 시사점]**\n{market_res['implications']}\n\n**[🔗 관련 소스]**\n{links_md}\n\n---\n"
+            market_trend_sections.append(section)
+            log("    Successfully captured global market trends.")
+    else:
+        log("    No significant global market trends found today.")
+
+    # ---------------------------------------------------------
+    # PART 2. Specific Competitor Deep Dive
+    # ---------------------------------------------------------
+    competitor_sections = []
     for comp in competitors:
         comp_name = comp['name']
         log(f" -> 1:1 Deep Dive Analysis for {comp_name}...")
@@ -258,14 +306,16 @@ def run_agent(forced_mode=None):
         if not links_markdown: links_markdown = "- 관련 링크 없음"
 
         section = f"### 🏢 {comp_name}\n\n**[📌 팩트 체크]**\n{ai_res['facts']}\n\n**[💡 DeepFusion 시사점]**\n{ai_res['implications']}\n\n**[🔗 링크]**\n{links_markdown}\n\n---\n"
-        final_report_sections.append(section)
+        competitor_sections.append(section)
         
         time.sleep(2) # 부하 관리
 
     # 취합 후 결과 발송
     today = datetime.now().strftime("%Y-%m-%d")
+    final_report_sections = market_trend_sections + competitor_sections
+    
     if not final_report_sections:
-        final_body = "모니터링한 경쟁사에 대해 오늘 수집된 유의미한 변동 사항이나 새로운 뉴스가 없습니다."
+        final_body = "모니터링한 경쟁사 및 시장 동향에 대해 오늘 수집된 유의미한 변동 사항이나 새로운 뉴스가 없습니다."
     else:
         final_body = "\n".join(final_report_sections)
 

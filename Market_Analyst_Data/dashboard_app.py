@@ -93,6 +93,11 @@ def load_data():
         st.error(f"데이터베이스 로딩 오류: {e}")
         return pd.DataFrame()
 
+# 데이터 새로고침 기능
+if st.sidebar.button("🔄 데이터 최신화 (새로고침)"):
+    st.cache_data.clear()
+    st.rerun()
+
 df = load_data()
 
 if df.empty:
@@ -160,9 +165,15 @@ else:
         # ---------------------------------------------------------
         # 메인 리포트 렌더링 (현재 선택된 날짜 하루치만 보여줌)
         # ---------------------------------------------------------
-        daily_df = filtered_df[filtered_df['report_date'] == current_date_val]
+        daily_df = filtered_df[filtered_df['report_date'] == current_date_val].copy()
+        
+        # '■ 시장 및 기술 동향'이 있으면 리스트 최상단으로 정렬
+        if 'competitor' in daily_df.columns:
+            daily_df['is_trend'] = daily_df['competitor'].apply(lambda x: 1 if '시장 및 기술 동향' in str(x) else 0)
+            daily_df = daily_df.sort_values(by='is_trend', ascending=False)
+            
         st.subheader(f"■ 해당 일자의 타겟 리포트 총 {len(daily_df)}건")
-        st.write("안구 피로 방지를 위해 화살표를 눌러 하루치 소식만 쾌적하게 봅니다.")
+        st.write(f"최신 데이터 업데이트 확인 완료 (기준일: {current_date_val})")
         
         for index, row in daily_df.iterrows():
             comp = row['competitor']

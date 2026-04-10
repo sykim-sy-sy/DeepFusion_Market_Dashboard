@@ -32,8 +32,17 @@ if GEMINI_API_KEY:
 else:
     print("⚠️ 경고: GEMINI_API_KEY를 .env 파일에서 찾을 수 없습니다. 요약 기능이 작동하지 않습니다.")
 
-# 2. 타겟 키워드 및 URL 리스트 (추후 target_monitoring_list.md 에서 동적으로 불러오는 형태로 고도화 가능)
-TARGET_KEYWORDS = ["4D Imaging Radar", "Deepfusion AI", "Aptiv Radar", "Oculii", "Bitsensing"]
+# 2. 타겟 키워드 및 URL 리스트 (경합사 + 시장 트렌드)
+TARGET_KEYWORDS = [
+    "4D Imaging Radar Market", 
+    "Autonomous Driving Sensor Trends", 
+    "Deepfusion AI", 
+    "Aptiv Radar", 
+    "Oculii", 
+    "Bitsensing",
+    "Arbe Robotics",
+    "Mobileye Radar"
+]
 
 def fetch_news(keyword):
     """지정된 키워드로 뉴스를 검색합니다 (최근 7일 이내 기사만 수집)."""
