@@ -95,6 +95,25 @@ NEW_LINA_SYSTEM_PROMPT = """
 }
 """
 
+MARKET_TREND_PROMPT = """
+당신은 'Lina(리나)'이며, '딥퓨전에이아이(DeepFusion AI)'의 수석 시장 분석가입니다.
+전체 시장 및 기술 동향 데이터를 분석하여 '핵심 동향'과 '시사점'을 도출하고, 특히 **[새롭게 등장한 경쟁사나 주목할 만한 플레이어]**가 있다면 발굴하여 제안하세요.
+
+지침:
+1. 'selected_sources'에는 데이터 중 가장 가치 있는 링크 3~5개를 포함하세요.
+2. 'discovery' 섹션에는 텍스트에서 새롭게 발견된 잠재적 경쟁사(스타트업 포함)가 있다면 업체명과 이유를 포함하세요. 없으면 빈 리스트 []를 반환하세요.
+
+응답 형식 (JSON만 출력):
+{
+  "facts": "전체 시장 핵심 동향 요약",
+  "implications": "당사에 주는 전략적 시사점",
+  "selected_sources": ["url1", "url2"],
+  "discovery": [
+    {"name": "업체명", "reason": "감지된 이유 및 경쟁 위협 요소"}
+  ]
+}
+"""
+
 TARGET_LIST_PATH = os.path.join(BASE_DIR, "Market_Analyst_Data", "target_monitoring_list.md")
 
 # ---------------------------------------------------------
@@ -193,10 +212,12 @@ def fetch_structured_news(keyword, time_limit='w'):
     
     return "", []
 
-def analyze_single_competitor(comp_name, raw_data, retries=2):
-    """1:1 밀착 분석 (JSON Format)"""
+def analyze_single_competitor(comp_name, raw_data, retries=2, is_market_trend=False):
+    """1:1 밀착 분석 (JSON Format) / 시장 동향의 경우 discovery 포함"""
     if not GEMINI_API_KEY:
         return {"facts": "API Key missing", "implications": "API Key missing"}
+    
+    system_prompt = MARKET_TREND_PROMPT if is_market_trend else NEW_LINA_SYSTEM_PROMPT
     
     models_to_try = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest']
     for model_name in models_to_try:
@@ -209,14 +230,15 @@ def analyze_single_competitor(comp_name, raw_data, retries=2):
                 url_list_str = "\n".join(list(set(raw_data.get("urls", [])))) if isinstance(raw_data, dict) else ""
                 content_blob = raw_data.get("content", raw_data) if isinstance(raw_data, dict) else raw_data
                 
-                full_prompt = f"{NEW_LINA_SYSTEM_PROMPT}\n\n[분석 대상: {comp_name}]\n\n[URL 후보 리스트]\n{url_list_str}\n\n[수집된 데이터 콘텐츠]\n{content_blob}"
+                full_prompt = f"{system_prompt}\n\n[분석 대상: {comp_name}]\n\n[URL 후보 리스트]\n{url_list_str}\n\n[수집된 데이터 콘텐츠]\n{content_blob}"
                 response = model.generate_content(full_prompt)
                 
                 result = json.loads(response.text.strip())
                 return {
                     "facts": result.get("facts", ""), 
                     "implications": result.get("implications", ""),
-                    "selected_sources": result.get("selected_sources", [])
+                    "selected_sources": result.get("selected_sources", []),
+                    "discovery": result.get("discovery", []) if is_market_trend else []
                 }
             except Exception as e:
                 error_str = str(e)
@@ -274,23 +296,33 @@ def run_agent(forced_mode=None):
             combined_market_news += f"--- Keyword: {m_kw} ---\n{news_text}\n\n"
             combined_market_urls.extend(news_urls)
             
+    discovery_sections = []
     if combined_market_news:
         # URL 리스트를 포함하여 분석 요청
         raw_bundle = {"content": combined_market_news, "urls": list(set(combined_market_urls))}
-        market_res = analyze_single_competitor("시장 및 기술 동향", raw_bundle)
+        market_res = analyze_single_competitor("시장 및 기술 동향", raw_bundle, is_market_trend=True)
         
         if "새로운 동향 없음" not in market_res['facts']:
             category_name = "시장 및 기술 동향"
             selected_links = market_res.get('selected_sources', [])
             
-            # DB Save (AI가 선별한 링크만 저장)
+            # 1. DB Save (AI가 선별한 링크만 저장)
             try:
                 final_urls_str = "\n".join(selected_links)
                 db_manager.insert_analysis(category_name, market_res['facts'], market_res['implications'], final_urls_str)
             except Exception as e:
                 log(f"    Market Trend DB Insert Error: {e}")
             
-            # Form section for email
+            # 2. Add Discovery Prospects if any
+            new_players = market_res.get('discovery', [])
+            if new_players:
+                log(f"    🚀 Found {len(new_players)} new competitor prospects!")
+                disc_md = "### 🚀 새로운 경쟁사 후보 발견\n*Lina가 시장 동향 분석 중 새롭게 감지한 잠재적 경쟁 플레이어입니다.*\n\n"
+                for p in new_players:
+                    disc_md += f"- **{p.get('name')}**: {p.get('reason')}\n"
+                discovery_sections.append(disc_md + "\n---\n")
+
+            # 3. Form section for email
             links_md = ""
             for u in selected_links:
                 links_md += f"- {u}\n"
@@ -298,7 +330,7 @@ def run_agent(forced_mode=None):
             
             section = f"### 🌐 {category_name}\n\n**[📌 주요 동향]**\n{market_res['facts']}\n\n**[💡 DeepFusion 시사점]**\n{market_res['implications']}\n\n**[🔗 관련 소스]**\n{links_md}\n\n---\n"
             market_trend_sections.append(section)
-            log("    Successfully captured global market trends with AI-filtered sources.")
+            log("    Successfully captured global market trends with Discovery analysis.")
     else:
         log("    No significant global market trends found today.")
 
@@ -352,7 +384,7 @@ def run_agent(forced_mode=None):
 
     # 취합 후 결과 발송
     today = datetime.now().strftime("%Y-%m-%d")
-    final_report_sections = market_trend_sections + competitor_sections
+    final_report_sections = market_trend_sections + discovery_sections + competitor_sections
     
     if not final_report_sections:
         final_body = "모니터링한 경쟁사 및 시장 동향에 대해 오늘 수집된 유의미한 변동 사항이나 새로운 뉴스가 없습니다."
