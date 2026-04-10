@@ -93,19 +93,22 @@ def load_data():
         st.error(f"데이터베이스 로딩 오류: {e}")
         return pd.DataFrame()
 
-# 데이터 새로고침 기능
-if st.sidebar.button("🔄 데이터 최신화 (새로고침)"):
-    st.cache_data.clear()
-    st.rerun()
+# 데이터 고유 경로 설정
+LOGO_PATH = os.path.join(os.path.dirname(__file__), "deepfusion_logo.png")
+
+# ---------------------------------------------------------
+# 왼쪽 사이드바 (필터) 및 로고
+# ---------------------------------------------------------
+if os.path.exists(LOGO_PATH):
+    st.sidebar.image(LOGO_PATH, use_container_width=True)
+else:
+    st.sidebar.title("DeepFusion AI")
 
 df = load_data()
 
 if df.empty:
     st.info(" 아직 수집된 데이터가 없습니다. Lina의 자동화 에이전트가 실행되면 여기에 분석 데이터가 차곡차곡 쌓이게 됩니다.")
 else:
-    # ---------------------------------------------------------
-    # 왼쪽 사이드바 (필터)
-    # ---------------------------------------------------------
     st.sidebar.header(" 데이터 필터 탐색기")
     st.sidebar.write("보고 싶은 조건만 골라서 필터링하세요.")
     
