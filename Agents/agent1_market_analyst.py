@@ -60,6 +60,13 @@ RECIPIENT_EMAILS = [
 ]
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY", "").strip()
 
+# 무의미한 정보가 많은 도메인 블랙리스트
+DOMAIN_BLACKLIST = [
+    "zhihu.com", "reddit.com", "quora.com", "forum.wordreference.com", 
+    "youtube.com", "facebook.com", "instagram.com", "twitter.com", "x.com",
+    "naver.com/cafe", "daum.net/cafe", "fmkorea.com", "ruliweb.com", "inven.co.kr"
+]
+
 # 시장/기술 동향 분석을 위한 광범위 키워드
 INDUSTRY_KEYWORDS = [
     "4D Imaging Radar Market News", 
@@ -73,12 +80,18 @@ INDUSTRY_KEYWORDS = [
 # ---------------------------------------------------------
 NEW_LINA_SYSTEM_PROMPT = """
 당신은 'Lina(리나)'이며, 자율주행 및 4D 이미징 레이더 전문 센서 기업 '딥퓨전에이아이(DeepFusion AI)'의 수석 시장 분석가입니다.
-제공된 [분석 대상(경쟁사 또는 시장)]의 팩트 데이터를 바탕으로 다음의 JSON 형식으로만 응답하세요. 데이터가 비어있거나 무의미하다면 "새로운 동향 없음"이라고 명확히 표기하세요. 절대로 없는 사실이나 가짜 링크를 만들어내지 마세요.
+제공된 [분석 대상]의 수집 데이터와 [URL 후보 리스트]를 바탕으로 다음의 JSON 형식으로만 응답하세요. 
+
+지침:
+1. 데이터가 비어있거나 무의미하다면 "새로운 동향 없음"이라고 명확히 표기하세요. 
+2. 절대로 없는 사실이나 가짜 링크를 만들어내지 마세요.
+3. 'selected_sources'에는 제공된 [URL 후보 리스트] 중 당신이 도출한 'facts'와 'implications'를 가장 잘 뒷받침하는 핵심 소스 링크 3~5개만 선별하여 포함하세요.
 
 응답 형식 (JSON만 출력):
 {
-  "facts": "발생한 핵심 팩트를 개조식(Bullet point)으로 요약. (기사 내용, 성과, 동향 등)",
-  "implications": "이 뉴스가 당사(딥퓨전 AI)에 주는 위협, 기회 또는 마케터로서의 Action Point를 날카롭게 도출"
+  "facts": "발생한 핵심 팩트를 개조식(Bullet point)으로 요약.",
+  "implications": "당사(딥퓨전 AI)에 주는 위협, 기회 또는 Action Point 도출",
+  "selected_sources": ["https://url1.com", "https://url2.com"]
 }
 """
 
@@ -142,9 +155,13 @@ def fetch_structured_news(keyword, time_limit='w'):
                 if results:
                     mapped = []
                     for r in results:
-                        mapped.append(f"- 제목: {r.get('title')}\n  요약: {r.get('description')}")
                         url = r.get('url')
-                        if url: extracted_urls.append(url)
+                        if url:
+                            # Blacklist filter
+                            if any(bad in url.lower() for bad in DOMAIN_BLACKLIST):
+                                continue
+                            extracted_urls.append(url)
+                            mapped.append(f"- 제목: {r.get('title')}\n  요약: {r.get('description')}\n  URL: {url}")
                     news_text = "\n\n".join(mapped)
                     return news_text, extracted_urls
         except Exception as e:
@@ -159,9 +176,13 @@ def fetch_structured_news(keyword, time_limit='w'):
             results = list(ddgs.text(f"{keyword} news", max_results=4, timelimit=time_filter))
             news_items = []
             for r in results:
-                news_items.append(f"- 제목: {r.get('title')}\n  요약: {r.get('body')}")
                 url = r.get('href')
-                if url: extracted_urls.append(url)
+                if url:
+                    # Blacklist filter
+                    if any(bad in url.lower() for bad in DOMAIN_BLACKLIST):
+                        continue
+                    extracted_urls.append(url)
+                    news_items.append(f"- 제목: {r.get('title')}\n  요약: {r.get('body')}\n  URL: {url}")
             
             if not news_items:
                 return "최근 새 뉴스가 없습니다.", []
@@ -183,11 +204,20 @@ def analyze_single_competitor(comp_name, raw_data, retries=2):
             try:
                 clean_model_name = model_name.replace('models/', '')
                 model = genai.GenerativeModel(clean_model_name, generation_config={"response_mime_type": "application/json", "temperature": 0.2})
-                full_prompt = f"{NEW_LINA_SYSTEM_PROMPT}\n\n[분석 대상: {comp_name}]\n[수집된 원시 데이터]\n{raw_data}"
+                
+                # 원본 URL 리스트를 함께 제공하여 AI가 선택하게 함
+                url_list_str = "\n".join(list(set(raw_data.get("urls", [])))) if isinstance(raw_data, dict) else ""
+                content_blob = raw_data.get("content", raw_data) if isinstance(raw_data, dict) else raw_data
+                
+                full_prompt = f"{NEW_LINA_SYSTEM_PROMPT}\n\n[분석 대상: {comp_name}]\n\n[URL 후보 리스트]\n{url_list_str}\n\n[수집된 데이터 콘텐츠]\n{content_blob}"
                 response = model.generate_content(full_prompt)
                 
                 result = json.loads(response.text.strip())
-                return {"facts": result.get("facts", ""), "implications": result.get("implications", "")}
+                return {
+                    "facts": result.get("facts", ""), 
+                    "implications": result.get("implications", ""),
+                    "selected_sources": result.get("selected_sources", [])
+                }
             except Exception as e:
                 error_str = str(e)
                 if "429" in error_str or "quota" in error_str.lower():
@@ -245,23 +275,30 @@ def run_agent(forced_mode=None):
             combined_market_urls.extend(news_urls)
             
     if combined_market_news:
-        market_res = analyze_single_competitor("시장 및 기술 동향", combined_market_news)
+        # URL 리스트를 포함하여 분석 요청
+        raw_bundle = {"content": combined_market_news, "urls": list(set(combined_market_urls))}
+        market_res = analyze_single_competitor("시장 및 기술 동향", raw_bundle)
+        
         if "새로운 동향 없음" not in market_res['facts']:
             category_name = "시장 및 기술 동향"
-            # DB Save
+            selected_links = market_res.get('selected_sources', [])
+            
+            # DB Save (AI가 선별한 링크만 저장)
             try:
-                db_manager.insert_analysis(category_name, market_res['facts'], market_res['implications'], "\n".join(list(set(combined_market_urls))))
+                final_urls_str = "\n".join(selected_links)
+                db_manager.insert_analysis(category_name, market_res['facts'], market_res['implications'], final_urls_str)
             except Exception as e:
                 log(f"    Market Trend DB Insert Error: {e}")
             
             # Form section for email
             links_md = ""
-            for u in list(set(combined_market_urls))[:5]:
+            for u in selected_links:
                 links_md += f"- {u}\n"
+            if not links_md: links_md = "- 관련 고품질 링크 없음"
             
             section = f"### 🌐 {category_name}\n\n**[📌 주요 동향]**\n{market_res['facts']}\n\n**[💡 DeepFusion 시사점]**\n{market_res['implications']}\n\n**[🔗 관련 소스]**\n{links_md}\n\n---\n"
             market_trend_sections.append(section)
-            log("    Successfully captured global market trends.")
+            log("    Successfully captured global market trends with AI-filtered sources.")
     else:
         log("    No significant global market trends found today.")
 
@@ -284,16 +321,19 @@ def run_agent(forced_mode=None):
             continue
             
         raw_blob = f"홈페이지 요약:\n{site_content}\n\n외부 뉴스 요약:\n{news_text}"
+        raw_bundle = {"content": raw_blob, "urls": list(set(news_urls))}
         
         # 2. Analyze per competitor
-        ai_res = analyze_single_competitor(comp_name, raw_blob)
+        ai_res = analyze_single_competitor(comp_name, raw_bundle)
         
         if "새로운 동향 없음" in ai_res['facts'] or "새로운 동향 없음" in ai_res['implications']:
             log(f"    (Skipping {comp_name} - AI found no meaningful insights)")
             continue
             
+        selected_links = ai_res.get('selected_sources', [])
+        
         # 3. DB Save
-        final_urls_str = "\n".join(news_urls)
+        final_urls_str = "\n".join(selected_links)
         try:
             db_manager.insert_analysis(comp_name, ai_res['facts'], ai_res['implications'], final_urls_str)
         except Exception as e:
@@ -301,9 +341,9 @@ def run_agent(forced_mode=None):
             
         # 4. Append to final mail report
         links_markdown = ""
-        for u in news_urls:
+        for u in selected_links:
             links_markdown += f"- {u}\n"
-        if not links_markdown: links_markdown = "- 관련 링크 없음"
+        if not links_markdown: links_markdown = "- 관련 고품질 링크 없음"
 
         section = f"### 🏢 {comp_name}\n\n**[📌 팩트 체크]**\n{ai_res['facts']}\n\n**[💡 DeepFusion 시사점]**\n{ai_res['implications']}\n\n**[🔗 링크]**\n{links_markdown}\n\n---\n"
         competitor_sections.append(section)
