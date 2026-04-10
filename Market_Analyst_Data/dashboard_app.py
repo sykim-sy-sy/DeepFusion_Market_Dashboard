@@ -2,6 +2,17 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import os
+import sys
+
+# 프로젝트 루트 경로 추가 (Agents 모듈 임포트용)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.append(BASE_DIR)
+
+try:
+    from Agents import agent6_kakao_manager
+except ImportError:
+    pass
 
 # 페이지 기본 설정
 st.set_page_config(page_title="DeepFusion AI 마켓 대시보드", page_icon="DeepFusion", layout="wide")
@@ -105,9 +116,13 @@ else:
 
 df = load_data()
 
-if df.empty:
-    st.info(" 아직 수집된 데이터가 없습니다. Lina의 자동화 에이전트가 실행되면 여기에 분석 데이터가 차곡차곡 쌓이게 됩니다.")
-else:
+# 메인 탭 구성
+tab1, tab2 = st.tabs(["📊 마켓 뉴스 리포트", "📱 메신저 대화 분석"])
+
+with tab1:
+    if df.empty:
+        st.info(" 아직 수집된 데이터가 없습니다. Lina의 자동화 에이전트가 실행되면 여기에 분석 데이터가 차곡차곡 쌓이게 됩니다.")
+    else:
     st.sidebar.header(" 데이터 필터 탐색기")
     st.sidebar.write("보고 싶은 조건만 골라서 필터링하세요.")
     
@@ -214,3 +229,48 @@ else:
                 </table>
                 """
                 st.markdown(table_html, unsafe_allow_html=True)
+
+with tab2:
+    st.markdown("### 📱 카카오톡 대화 분석 (Lina V3.0)")
+    st.write("카카오톡에서 내보낸 대화 내역(.txt)을 업로드하면 핵심 요약과 할 일을 정리해 드립니다.")
+    
+    uploaded_file = st.file_uploader("카카오톡 대화방 텍스트 파일 업로드", type=["txt"])
+    
+    if uploaded_file is not None:
+        with st.status("Lina가 대화 내용을 분석 중입니다...", expanded=True) as status:
+            content = uploaded_file.getvalue().decode("utf-8")
+            st.write("데이터 파싱 중...")
+            result = agent6_kakao_manager.analyze_chat(content)
+            status.update(label="분석 완료!", state="complete", expanded=False)
+        
+        if "error" in result:
+            st.error(result["error"])
+        else:
+            # 결과 렌더링
+            st.success("✅ 대화 분석이 완료되었습니다.")
+            
+            c1, c2 = st.columns([2, 1])
+            
+            with c1:
+                st.markdown("#### 📝 대화 요약")
+                st.info(result.get("summary", "요약 내용 없음"))
+                
+                st.markdown("#### 🎯 주요 결정 사항")
+                decisions = result.get("decisions", [])
+                if decisions:
+                    for d in decisions:
+                        st.write(f"- {d}")
+                else:
+                    st.write("감지된 결정 사항이 없습니다.")
+            
+            with c2:
+                st.markdown("#### ✅ 할 일(To-Do)")
+                todos = result.get("todos", [])
+                if todos:
+                    for t in todos:
+                        with st.container(border=True):
+                            st.write(f"**업무:** {t.get('task')}")
+                            st.write(f"**담당:** {t.get('owner', '미정')}")
+                            st.write(f"**기한:** {t.get('due', '미정')}")
+                else:
+                    st.write("추출된 할 일이 없습니다.")
