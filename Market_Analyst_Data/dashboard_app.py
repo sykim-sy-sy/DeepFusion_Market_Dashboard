@@ -76,7 +76,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header"><span style="color:#004b87;">■</span> DeepFusion AI 모닝 인사이트 데스크</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">AI 에이전트 Lina가 매일 수집 및 심층 분석하는 자율주행 센서/4D 레이더 경쟁사 동향 대시보드입니다.</p>', unsafe_allow_html=True)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "market_data.db")
 
