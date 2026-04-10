@@ -247,7 +247,7 @@ def run_agent(forced_mode=None):
     if combined_market_news:
         market_res = analyze_single_competitor("시장 및 기술 동향", combined_market_news)
         if "새로운 동향 없음" not in market_res['facts']:
-            category_name = "■ 시장 및 기술 동향"
+            category_name = "시장 및 기술 동향"
             # DB Save
             try:
                 db_manager.insert_analysis(category_name, market_res['facts'], market_res['implications'], "\n".join(list(set(combined_market_urls))))
